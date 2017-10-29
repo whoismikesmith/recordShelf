@@ -86,7 +86,7 @@ I would love some help/criticism/feedback, I'm new to collaborative coding.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
 
 ## Acknowledgments
 
