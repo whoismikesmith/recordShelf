@@ -25,7 +25,7 @@ sudo pip install Flask
 Clone the repository to your local system.
 
 ```
-git clone https://github.com/whoismikesmith/shelf
+git clone https://github.com/whoismikesmith/recordShelf
 ```
 
 Navigate to the project folder
