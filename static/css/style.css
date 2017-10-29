@@ -1,0 +1,6 @@
+.check:checked + .labelcheck {
+  font-weight: bold;
+}
+.check:checked + .labelcheck span {
+  color: red;
+}
