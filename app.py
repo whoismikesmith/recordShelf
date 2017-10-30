@@ -1,4 +1,6 @@
-# app.py
+#!/usr/bin/env python
+
+"""app.py: does the dew"""
 
 from flask import Flask, render_template, request
 
@@ -7,6 +9,11 @@ import json
 import opc, time, datetime, sched, sys, itertools, os.path, math, socket
 
 from config import discogsUsername, sort, pageNumber, defaultFormats
+
+__author__		= "Mike Smith"
+__copyright__	= "Copyright 2017, Mike Smith"
+__license__		= "MIT"
+__maintainer__	= "Mike Smith"
 
 totalPixels = 500
 selectedNo = 0

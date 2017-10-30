@@ -1,5 +1,13 @@
-# app.py
+#!/usr/bin/env python
+
+"""config.py: config for app.py"""
+
 import os
+
+__author__		= "Mike Smith"
+__copyright__	= "Copyright 2017, Mike Smith"
+__license__		= "MIT"
+__maintainer__	= "Mike Smith"
 
 discogsUsername = os.environ["DISCOGS_USERNAME"]
 #default page number
