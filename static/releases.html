@@ -25,7 +25,7 @@
   </div>
   <hr>
   <table id="releases" class="display">
-  <!--  <thead>
+  <thead>
       <tr>
         <th>Index</th>
         <th>Artist(s)</th>
@@ -63,7 +63,7 @@
         </td>
       </tr>
       {% if count.update({'value': (count.value + 1)}) %} {% endif %}
-      {% endfor %}-->
+      {% endfor %}
     </tbody>
   </table>
   <script type=text/javascript>
@@ -75,13 +75,6 @@
         var clicked;
 
         table = $('#releases').DataTable({
-          "ajax": {
-            "url": "collection.json",
-            "dataSrc": ""
-          },
-          "columns": [{
-            "data" : "date_added"
-          }],
           select : {
             style : 'single'
           },
