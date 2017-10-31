@@ -15,7 +15,7 @@
 
 <body>
   <!-- <h1>{{length}} Releases</h1> {% set count = {'value': 0} %}-->
-  <div>
+  <!-- <div>
     <h2>Filters</h2> {% for format in formats %}
     <form>
       <input class="check" type="checkbox" name="{{format}}" value="{{format}}" id="{{format}}"><label class="labelcheck" for={{format}}> <span> {{format}} </span> </label>
@@ -23,11 +23,10 @@
       <a href="#" id="formatSubmit">Submit</a>
     </form>
   </div>
-  <hr>
+  <hr> -->
   <table id="releases" class="display">
   <thead>
       <tr>
-        <th>Index</th>
         <th>Artist(s)</th>
         <th>Title</th>
         <th>Format</th>
@@ -35,7 +34,7 @@
         <th>Year</th>
       </tr>
     </thead>
-    <tbody>
+    <!--<tbody>
       {% for release in releases %}
       <tr>
         <td>
@@ -64,17 +63,31 @@
       </tr>
       {% if count.update({'value': (count.value + 1)}) %} {% endif %}
       {% endfor %}
-    </tbody>
+    </tbody>-->
   </table>
   <script type=text/javascript>
   $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
 
       $(document).ready(function() {
+
         var collection = '{{collection}}';
         var formatfilters = [];
         var clicked;
 
         table = $('#releases').DataTable({
+          "ajax": {
+            "url":"/collectionData",
+            "cache": true,
+            "dataSrc" : ""
+          },
+
+        "columns": [
+            { "data": "basic_information.artists.0.name" },
+            { "data": "basic_information.title" },
+            { "data": "basic_information.formats.0.descriptions.0" },
+            { "data": "basic_information.labels.0.name" },
+            { "data": "basic_information.year" }
+        ],
           select : {
             style : 'single'
           },

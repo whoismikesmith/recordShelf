@@ -2,7 +2,7 @@
 
 """app.py: does the dew"""
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 
 import requests
 import json
@@ -45,10 +45,11 @@ filteredCollection = []
 formats = 'null'
 
 app = Flask(__name__, template_folder='.')
-
+#startup is the first function called
 def startup():
 	print "startup started:"
 	global num_pages
+	#try to connect to Discogs to gather info about userName's collection
 	try:
 		r = requests.get('https://api.discogs.com/users/' + userName + '/collection/folders/0/releases?per_page=50&page=' + pageNumber + '&sort=' + sort)
 		initData =  json.loads(r.text)
@@ -61,7 +62,7 @@ def startup():
 			print "Ready to download " + str(num_pages) + " pages of collection data from " + discogsUsername + "\'s Discogs collection."
 	except Exception,e:
 		print e
-		
+
 def internet_on():
 	for timeout in [1]:
 		try:
@@ -88,60 +89,61 @@ def dataCheck():
 		with open('collection.json') as data_file:
 			#if collection.json exists, use it to fill 'collection'
 			collection = json.load(data_file)
-			formats = loadFormats(collection)
-			#filter
-			newCollection = []
-			for f in collection:
-				try:
-					if f.get("basic_information", {}).get("formats"):
-						#print f.get("basic_information", {}).get("formats")
-						types = f["basic_information"]["formats"][0]["descriptions"]
-						#make this user-definable
-						for w in defaultFormats:
-							#print "Checking for defaultFormat " + w;
-							if w in types:
-								newCollection.append(f)
-						#print f
-				except KeyError:
-					print ("Error on " + f["basic_information"]["title"])
-			return newCollection
+			return collection
+			# formats = loadFormats(collection)
+			# #filter
+			# newCollection = []
+			# for f in collection:
+			# 	try:
+			# 		if f.get("basic_information", {}).get("formats"):
+			# 			#print f.get("basic_information", {}).get("formats")
+			# 			types = f["basic_information"]["formats"][0]["descriptions"]
+			# 			#make this user-definable
+			# 			for w in defaultFormats:
+			# 				#print "Checking for defaultFormat " + w;
+			# 				if w in types:
+			# 					newCollection.append(f)
+			# 			#print f
+			# 	except KeyError:
+			# 		print ("Error on " + f["basic_information"]["title"])
+			# return newCollection
 
 
-def loadFormats(data):
-	global formats
-	print "loadFormats called : "
-	formats = []
-	for release in data:
-	  descriptions = release["basic_information"]["formats"][0].get("descriptions",{})
-	  #check to see if desired format matches current record's format
-	  for description in descriptions:
-		  if description not in formats:
-		  	formats.append(description)
-	formats = sorted(formats)
-	return formats
-
-def formatFilter(data, filters):
-	print "formatFilter called : "
-	#empty filteredCollection list each time it's called
-	filteredCollection = []
-	releases = data
-	targets = filters
-	for f in filters:
-		print "Filter = " + f
-	for r in releases:
-		description = r["basic_information"]["formats"][0].get("descriptions",{})
-		#check to see if desired format matches current record's format
-		for t in targets:
-			if t in description:
-			  filteredCollection.append(r)
-	#for f in filteredCollection:
-		#fName = f["basic_information"]["artists"][0]["name"]
-		#fTitle = f["basic_information"]["title"]
-		#fFormat = f["basic_information"]["formats"][0]["descriptions"][0]
-		#print (fFormat + " - " + fName + " - " + fTitle)
-	filteredSize = len(filteredCollection)
-	print ("Filter complete! " + str(filteredSize) + " records returned.")
-	return filteredCollection
+# def loadFormats(data):
+# 	global formats
+# 	print "loadFormats called : "
+# 	formats = []
+# 	for release in data:
+# 	  descriptions = release["basic_information"]["formats"][0].get("descriptions",{})
+# 	  #check to see if desired format matches current record's format
+# 	  for description in descriptions:
+# 		  if description not in formats:
+# 		  	formats.append(description)
+# 	formats = sorted(formats)
+# 	return formats
+#
+# def formatFilter(data, filters):
+# 	print "formatFilter called : "
+# 	#empty filteredCollection list each time it's called
+# 	filteredCollection = []
+# 	releases = data
+# 	targets = filters
+# 	for f in filters:
+# 		print "Filter = " + f
+# 	for r in releases:
+# 		description = r["basic_information"]["formats"][0].get("descriptions",{})
+# 		#check to see if desired format matches current record's format
+# 		for t in targets:
+# 			if t in description:
+# 			  filteredCollection.append(r)
+# 	#for f in filteredCollection:
+# 		#fName = f["basic_information"]["artists"][0]["name"]
+# 		#fTitle = f["basic_information"]["title"]
+# 		#fFormat = f["basic_information"]["formats"][0]["descriptions"][0]
+# 		#print (fFormat + " - " + fName + " - " + fTitle)
+# 	filteredSize = len(filteredCollection)
+# 	print ("Filter complete! " + str(filteredSize) + " records returned.")
+# 	return filteredCollection
 
 def index2led(index, indexes):
 	print "index2led called"
@@ -340,6 +342,14 @@ def filters():
 		print ("defaultFormats array updated : " + w)
  	#print collection
 	return render_template('static/releases.html', releases=collection, formats=formats, length=len(collection))
+
+@app.route('/collectionData')
+def collectionData():
+	#open up a json file and return it as jsonified data? really? I need to do this?
+	with open("collection.json") as file:
+		data = json.load(file)
+		return jsonify(data)
+
 
 if __name__ == '__main__':
   app.run(host='0.0.0.0', debug=True)
