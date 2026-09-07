@@ -54,7 +54,10 @@ shelf and controllers, **Organize** to pick an ordering scheme, generate a plan,
 calibrate boxes, **Browse** to find records.
 
 A Discogs token is optional for public collections but raises the rate limit from 25 to 60
-requests a minute. Get one at <https://www.discogs.com/settings/developers>.
+requests a minute, and it is the only way to see your collection folders and notes (Discogs
+hides those from unauthenticated requests). Get one at
+<https://www.discogs.com/settings/developers>. A 1700-item collection syncs in about a
+minute either way.
 
 ### Development
 
