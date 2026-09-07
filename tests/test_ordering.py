@@ -7,6 +7,12 @@ def test_artist_parsing():
     assert sort_name("The Beatles") == "beatles"
     assert sort_name("Bush (2)") == "bush"
     assert (
+        sort_name("...And You Will Know Us By The Trail Of Dead")
+        == "and you will know us by the trail of dead"
+    )
+    assert sort_name("!!!") == "!!!"
+    assert sort_name("A Tribe Called Quest") == "tribe called quest"
+    assert (
         artist_display(
             [{"name": "Miles Davis", "join": "&"}, {"name": "John Coltrane", "join": ""}]
         )

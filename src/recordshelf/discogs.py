@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 
 API = "https://api.discogs.com"
 _NUM_SUFFIX = re.compile(r"\s*\(\d+\)$")
+_LEADING_PUNCT = re.compile(r"^[^\w]+")
 _ARTICLES = ("the ", "a ", "an ")
 
 
@@ -46,7 +47,11 @@ def artist_display(artists: list[dict[str, Any]]) -> str:
 
 
 def sort_name(name: str) -> str:
+    """Shelf-style sort key: case-folded, leading punctuation and article dropped."""
     s = clean_artist_name(name).casefold()
+    stripped = _LEADING_PUNCT.sub("", s)
+    if stripped:
+        s = stripped
     for art in _ARTICLES:
         if s.startswith(art):
             s = s[len(art) :]
