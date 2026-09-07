@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS shelf_order (
 );
 CREATE TABLE IF NOT EXISTS box_boundaries (
   box_id         TEXT PRIMARY KEY,
-  first_position INTEGER NOT NULL
+  first_position INTEGER NOT NULL,
+  source         TEXT NOT NULL DEFAULT 'derived'
 );
 CREATE TABLE IF NOT EXISTS overrides (
   instance_id INTEGER PRIMARY KEY,
@@ -76,6 +77,15 @@ class Database:
             if self.path != ":memory:":
                 self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.executescript(SCHEMA)
+            self._migrate()
+
+    def _migrate(self) -> None:
+        cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(box_boundaries)")}
+        if "source" not in cols:
+            self._conn.execute(
+                "ALTER TABLE box_boundaries ADD COLUMN source TEXT NOT NULL DEFAULT 'derived'"
+            )
+            self._conn.commit()
 
     def close(self) -> None:
         with self._lock:
@@ -183,26 +193,40 @@ class Database:
         self.set_order(self.get_order())
 
     # -- boundaries --------------------------------------------------------
+    # A boundary is the first shelf position in a box. 'calibrated' rows were set by the user
+    # ("this record is first in this box"); 'derived' rows were materialised by the app so that
+    # hand placements stay put. Placement treats both the same; only the badge differs.
 
     def get_boundaries(self) -> dict[str, int]:
         return {
             r["box_id"]: r["first_position"] for r in self.query("SELECT * FROM box_boundaries")
         }
 
-    def set_boundaries(self, boundaries: dict[str, int]) -> None:
+    def calibrated_boxes(self) -> set[str]:
+        rows = self.query("SELECT box_id FROM box_boundaries WHERE source='calibrated'")
+        return {r["box_id"] for r in rows}
+
+    def set_boundaries(
+        self, boundaries: dict[str, int], calibrated: set[str] | None = None
+    ) -> None:
+        calibrated = calibrated or set()
         with self._lock:
             self._conn.execute("DELETE FROM box_boundaries")
             self._conn.executemany(
-                "INSERT INTO box_boundaries(box_id, first_position) VALUES(?,?)",
-                list(boundaries.items()),
+                "INSERT INTO box_boundaries(box_id, first_position, source) VALUES(?,?,?)",
+                [
+                    (b, p, "calibrated" if b in calibrated else "derived")
+                    for b, p in boundaries.items()
+                ],
             )
             self._conn.commit()
 
-    def set_boundary(self, box_id: str, first_position: int) -> None:
+    def set_boundary(self, box_id: str, first_position: int, source: str = "calibrated") -> None:
         self.execute(
-            "INSERT INTO box_boundaries(box_id, first_position) VALUES(?,?) "
-            "ON CONFLICT(box_id) DO UPDATE SET first_position=excluded.first_position",
-            (box_id, first_position),
+            "INSERT INTO box_boundaries(box_id, first_position, source) VALUES(?,?,?) "
+            "ON CONFLICT(box_id) DO UPDATE SET first_position=excluded.first_position, "
+            "source=excluded.source",
+            (box_id, first_position, source),
         )
 
     def clear_boundary(self, box_id: str) -> None:

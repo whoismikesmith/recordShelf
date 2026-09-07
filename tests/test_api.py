@@ -49,6 +49,9 @@ def test_plan_apply_locate_and_calibrate(client):
     client.post("/api/plan/apply")
     order = client.get("/api/order").json()
     assert order["total"] == 9 and order["inbox"] == []
+    assert not any(
+        b["calibrated"] for b in order["boxes"]
+    )  # apply gives estimates, not calibration
     # 9 records across 25 equal boxes: most boxes hold none, first 9 hold one each
     assert [b["count"] for b in order["boxes"][:10]] == [1] * 9 + [0]
     loc = client.post("/api/locate/2").json()  # Miles Davis, second in Jazz section
@@ -59,7 +62,9 @@ def test_plan_apply_locate_and_calibrate(client):
     assert loc["title"] == "Nevermind"
     # calibration: say Beatles are the first record in box r0c1
     resp = client.post("/api/calibrate", json={"box_id": "r0c1", "instance_id": 1}).json()
-    assert resp["stored"]["r0c1"] == 2
+    assert resp["stored"]["r0c1"] == 2 and resp["calibrated"] == ["r0c1"]
+    boxes = client.get("/api/order").json()["boxes"]
+    assert [b["box_id"] for b in boxes if b["calibrated"]] == ["r0c1"]
     assert client.post("/api/locate/2").json()["box_id"] == "r0c0"
     client.post("/api/lights/off")
     assert client.get("/api/hooks/state").json()["on"] is False
@@ -80,6 +85,9 @@ def test_place_from_inbox_and_remove(client):
     client.post("/api/order/place", json={"instance_id": 9, "box_id": "r4c4"})
     order = client.get("/api/order").json()
     assert order["boxes"][-1]["items"][-1]["instance_id"] == 9
+    # hand placement materialises boundaries but does not claim calibration
+    assert not any(b["calibrated"] for b in order["boxes"])
+    assert client.get("/api/boundaries").json()["calibrated"] == []
 
 
 def test_put_boxes_and_suggest(client):

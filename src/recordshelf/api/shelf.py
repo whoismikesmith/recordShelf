@@ -15,6 +15,7 @@ def _order_view(s: Services) -> dict:
     scheme = s.scheme()
     overrides = s.db.get_overrides()
     releases = s.releases()
+    calibrated = s.db.calibrated_boxes()
     boxes = []
     for rng in placement.ranges:
         items = []
@@ -31,7 +32,7 @@ def _order_view(s: Services) -> dict:
                 "first_position": rng.start,
                 "count": rng.count,
                 "capacity": rng.box.capacity,
-                "calibrated": rng.box.id in s.db.get_boundaries(),
+                "calibrated": rng.box.id in calibrated,
                 "has_leds": rng.box.has_leds,
                 "items": items,
             }
@@ -158,9 +159,17 @@ async def remove(body: RemoveBody, s: Services = Depends(svc)) -> dict:
     return _order_view(s)
 
 
+def _boundaries_view(s: Services) -> dict:
+    return {
+        "stored": s.db.get_boundaries(),
+        "effective": s.placement().boundaries,
+        "calibrated": sorted(s.db.calibrated_boxes()),
+    }
+
+
 @router.get("/boundaries")
 async def get_boundaries(s: Services = Depends(svc)) -> dict:
-    return {"stored": s.db.get_boundaries(), "effective": s.placement().boundaries}
+    return _boundaries_view(s)
 
 
 class BoundariesBody(BaseModel):
@@ -171,7 +180,7 @@ class BoundariesBody(BaseModel):
 async def put_boundaries(body: BoundariesBody, s: Services = Depends(svc)) -> dict:
     valid = {b.id for b in s.layout.record_boxes}
     s.db.set_boundaries({k: v for k, v in body.boundaries.items() if k in valid})
-    return {"stored": s.db.get_boundaries(), "effective": s.placement().boundaries}
+    return _boundaries_view(s)
 
 
 class CalibrateBody(BaseModel):
@@ -185,13 +194,13 @@ async def calibrate(body: CalibrateBody, s: Services = Depends(svc)) -> dict:
         s.calibrate(body.box_id, body.instance_id)
     except NotFound as exc:
         raise not_found(exc) from exc
-    return {"stored": s.db.get_boundaries(), "effective": s.placement().boundaries}
+    return _boundaries_view(s)
 
 
 @router.delete("/calibrate/{box_id}")
 async def uncalibrate(box_id: str, s: Services = Depends(svc)) -> dict:
     s.db.clear_boundary(box_id)
-    return {"stored": s.db.get_boundaries(), "effective": s.placement().boundaries}
+    return _boundaries_view(s)
 
 
 @router.get("/scheme")

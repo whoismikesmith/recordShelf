@@ -181,8 +181,11 @@ class Services:
         box of the record just before it.
         """
         placement = self.placement()
+        calibrated = self.db.calibrated_boxes()
         old_pos = placement.position.get(instance_id)
-        stored = self.db.get_boundaries()
+        # Materialise the effective boundaries so this placement sticks instead of being
+        # re-estimated from capacities on the next read.
+        stored = placement.boundaries
         order = [i for i in placement.order if i != instance_id]
         if old_pos is not None:
             stored = {b: (p - 1 if p > old_pos else p) for b, p in stored.items()}
@@ -208,16 +211,17 @@ class Services:
             after_target = index_of.get(b, 0) > target
             shifted[b] = p + 1 if (p > position or (p == position and after_target)) else p
         self.db.set_order(order)
-        self.db.set_boundaries(shifted)
+        self.db.set_boundaries(shifted, calibrated)
         return self.placement()
 
     def remove_from_shelf(self, instance_id: int) -> None:
-        pos = self.placement().position.get(instance_id)
+        placement = self.placement()
+        pos = placement.position.get(instance_id)
         if pos is None:
             return
-        boundaries = {b: (p - 1 if p > pos else p) for b, p in self.db.get_boundaries().items()}
+        boundaries = {b: (p - 1 if p > pos else p) for b, p in placement.boundaries.items()}
         self.db.remove_from_order(instance_id)
-        self.db.set_boundaries(boundaries)
+        self.db.set_boundaries(boundaries, self.db.calibrated_boxes())
 
     def set_boxes(self, boxes: dict[str, list[int]]) -> Placement:
         """Set the whole shelf from explicit per-box contents (drag and drop result)."""
@@ -229,7 +233,7 @@ class Services:
                 if iid not in order:
                     order.append(iid)
         self.db.set_order(order)
-        self.db.set_boundaries(boundaries)
+        self.db.set_boundaries(boundaries, self.db.calibrated_boxes())
         return self.placement()
 
     def plan(self):
@@ -244,9 +248,12 @@ class Services:
         )
 
     def apply_plan(self) -> Placement:
+        """Make the plan the shelf order. Stored boundaries are cleared: the plan's box split
+        is the capacity-proportional estimate, which is exactly what an uncalibrated placement
+        computes, so nothing is lost and boxes correctly show as 'estimated' until calibrated."""
         plan = self.plan()
         self.db.set_order(plan.order)
-        self.db.set_boundaries(plan.boundaries)
+        self.db.set_boundaries({})
         return self.placement()
 
     def calibrate(self, box_id: str, instance_id: int) -> Placement:
