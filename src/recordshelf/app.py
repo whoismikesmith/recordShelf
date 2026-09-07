@@ -37,6 +37,7 @@ def create_app(settings: Settings | None = None, db: Database | None = None) -> 
 
     dist: Path = settings.web_dist
     if dist.is_dir() and (dist / "index.html").is_file():
+        log.info("serving web UI from %s", dist)
         if (dist / "assets").is_dir():
             app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
 
@@ -48,6 +49,10 @@ def create_app(settings: Settings | None = None, db: Database | None = None) -> 
             return FileResponse(dist / "index.html")
 
     else:
+        log.warning(
+            "web UI not found at %s (run `npm run build` in web/, or set RECORDSHELF_WEB_DIST)",
+            dist,
+        )
 
         @app.get("/", include_in_schema=False)
         async def no_ui() -> dict:
@@ -55,6 +60,7 @@ def create_app(settings: Settings | None = None, db: Database | None = None) -> 
                 "app": "recordShelf",
                 "version": __version__,
                 "hint": "Web UI not built. Run `npm run build` in web/, or use /docs for the API.",
+                "looked_in": str(dist),
             }
 
     return app

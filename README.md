@@ -49,6 +49,10 @@ $EDITOR .env                 # DISCOGS_USERNAME and DISCOGS_TOKEN
 uv run recordshelf serve     # http://localhost:8000
 ```
 
+`recordshelf serve` finds `web/dist`, `config/`, `data/` and `.env` relative to the checkout,
+so it works from any directory. The server log says where it is serving the UI from; if you
+see a JSON hint instead of the app, the build is missing at the path it names.
+
 Then in the app: **Settings → Sync now** to pull the collection, **Layout** to describe your
 shelf and controllers, **Organize** to pick an ordering scheme, generate a plan, apply it, and
 calibrate boxes, **Browse** to find records.

@@ -5,9 +5,8 @@ import asyncio
 import logging
 import shutil
 import sys
-from pathlib import Path
 
-from .settings import Settings
+from .settings import ROOT, Settings
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
@@ -75,8 +74,8 @@ def cmd_init(args: argparse.Namespace) -> int:
         layout.parent.mkdir(parents=True, exist_ok=True)
         layout.write_text(EXAMPLE_YAML)
         print(f"wrote {layout}")
-    env = Path(".env")
-    example = Path(".env.example")
+    env = ROOT / ".env"
+    example = ROOT / ".env.example"
     if env.exists():
         print(".env already exists")
     elif example.exists():
