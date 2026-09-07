@@ -105,7 +105,8 @@ class DiscogsClient:
         if token:
             headers["Authorization"] = f"Discogs token={token}"
         self._own_client = client is None
-        self._client = client or httpx.AsyncClient(base_url=API, headers=headers, timeout=30)
+        self._client = client or httpx.AsyncClient(base_url=API, timeout=30)
+        self._client.headers.update(headers)
         # Discogs allows 60 req/min authenticated, 25 unauthenticated. Stay under both.
         self._min_interval = 1.1 if token else 2.5
         self._last_request = 0.0
@@ -122,7 +123,8 @@ class DiscogsClient:
             self._last_request = time.monotonic()
             resp = await self._client.get(path, params=params)
             if resp.status_code == 429:
-                retry = float(resp.headers.get("Retry-After", "0") or 0) or 15.0
+                header = resp.headers.get("Retry-After")
+                retry = float(header) if header and header.replace(".", "", 1).isdigit() else 15.0
                 log.warning("Discogs rate limited, sleeping %.0fs", retry)
                 await asyncio.sleep(retry)
                 continue
