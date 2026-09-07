@@ -1,0 +1,21 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+*.egg-info/
+
+# app data
+data/
+config/shelf.yaml
+.env
+collection.json
+
+# web
+web/node_modules/
+web/dist/
+
+# os
+.DS_Store
