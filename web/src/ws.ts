@@ -3,7 +3,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import type { QueryClient } from "@tanstack/react-query";
-import type { ActiveScene, Effect, ResolvedLayout, SyncStatus } from "./api";
+import type { ActiveScene, Effect, EnrichStatus, ResolvedLayout, SyncStatus } from "./api";
 
 export interface SocketState {
   connected: boolean;
@@ -11,6 +11,7 @@ export interface SocketState {
   effect: Effect | null;
   scene: ActiveScene | null;
   sync: SyncStatus | null;
+  enrich: EnrichStatus | null;
 }
 
 type Listener = () => void;
@@ -26,7 +27,7 @@ function decodeHex(hex: string): Uint8Array {
 
 class ShelfSocket {
   frame: Uint8Array = new Uint8Array(0);
-  state: SocketState = { connected: false, layout: null, effect: null, scene: null, sync: null };
+  state: SocketState = { connected: false, layout: null, effect: null, scene: null, sync: null, enrich: null };
   private stateListeners = new Set<Listener>();
   private frameListeners = new Set<FrameListener>();
   private retry = 0;
@@ -95,6 +96,7 @@ class ShelfSocket {
           effect: (msg.effect as Effect | null) ?? null,
           scene: (msg.scene as ActiveScene | null) ?? null,
           sync: (msg.sync as SyncStatus | null) ?? null,
+          enrich: (msg.enrich as EnrichStatus | null) ?? null,
         });
         break;
       case "effect":
@@ -115,7 +117,17 @@ class ShelfSocket {
         const sync = rest as unknown as SyncStatus;
         this.setState({ sync });
         if (sync.state === "done" || sync.state === "error") {
-          this.invalidate(["status", "releases", "facets", "order", "plan"]);
+          this.invalidate(["status", "releases", "facets", "order", "plan", "scenes"]);
+        }
+        break;
+      }
+      case "enrich": {
+        const { type: _t, ...rest } = msg;
+        void _t;
+        const enrich = rest as unknown as EnrichStatus;
+        this.setState({ enrich });
+        if (enrich.state === "done" || enrich.state === "error") {
+          this.invalidate(["status", "scenes"]);
         }
         break;
       }

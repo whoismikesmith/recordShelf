@@ -229,7 +229,9 @@ table.t input.short { width: 5.5em; }
 
 /* ---- misc ---- */
 .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; }
-.legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; box-shadow: inset 0 0 0 1px var(--line); }
+.legend.col { flex-direction: column; gap: 3px; }
+.legend.col > span { padding-left: 18px; text-indent: -18px; overflow-wrap: anywhere; }
 .toasts { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tab-h) + 12px); display: flex; flex-direction: column; gap: 6px; z-index: 50; pointer-events: none; width: min(92vw, 420px); }
 @media (min-width: 900px) { .toasts { bottom: 20px; } }
 .toast { background: var(--bg-4); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.6rem 0.9rem; box-shadow: var(--shadow); font-size: 0.9rem; animation: toast-in 0.18s ease-out; }

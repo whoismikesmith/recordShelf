@@ -1,7 +1,9 @@
+import socket
 import struct
 
 from recordshelf.drivers.opc import opc_message
-from recordshelf.drivers.wled import ddp_packets
+from recordshelf.drivers.wled import WledDriver, ddp_packets
+from recordshelf.models import ControllerConfig
 
 
 def test_ddp_packets_split_and_push_flag():
@@ -24,3 +26,14 @@ def test_ddp_empty_frame_is_a_push():
 def test_opc_message():
     msg = opc_message([(1, 2, 3), (4, 5, 6)])
     assert msg[:4] == bytes((0, 0, 0, 6)) and msg[4:] == bytes((1, 2, 3, 4, 5, 6))
+
+
+async def test_wled_http_uses_resolved_ipv4(monkeypatch):
+    monkeypatch.setattr(socket, "gethostbyname", lambda host: "192.168.1.77")
+    d = WledDriver(ControllerConfig(id="w", host="wled2.local", led_count=10))
+    assert d.base_url == "http://wled2.local"
+    await d.start()
+    try:
+        assert d.base_url == "http://192.168.1.77"
+    finally:
+        await d.stop()

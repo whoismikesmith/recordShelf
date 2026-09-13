@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+import unicodedata
+
 from .models import Release
+
+
+def fold(text: str) -> str:
+    """Case- and accent-insensitive form, so 'sigur ros' finds 'Sigur Rós'."""
+    decomposed = unicodedata.normalize("NFKD", text.casefold())
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
 
 
 def haystack(r: Release) -> str:
@@ -15,11 +23,11 @@ def haystack(r: Release) -> str:
         *r.genres,
         *r.styles,
     ]
-    return " ".join(parts).casefold()
+    return fold(" ".join(parts))
 
 
 def matches(r: Release, q: str) -> bool:
-    tokens = q.casefold().split()
+    tokens = fold(q).split()
     if not tokens:
         return True
     hay = haystack(r)
@@ -27,10 +35,10 @@ def matches(r: Release, q: str) -> bool:
 
 
 def score(r: Release, q: str) -> float:
-    qf = q.casefold().strip()
+    qf = fold(q).strip()
     if not qf:
         return 0.0
-    artist, title = r.artist.casefold(), r.title.casefold()
+    artist, title = fold(r.artist), fold(r.title)
     s = 0.0
     if qf == title or qf == f"{artist} {title}" or qf == f"{title} {artist}":
         s += 100

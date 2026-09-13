@@ -5,14 +5,18 @@ from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..models import ReleaseOut
-from ..search import matches
+from ..search import matches, score
 from ..services import Services
 from .deps import svc
 
 router = APIRouter(tags=["releases"])
 
 
-def _sorted(items: list[ReleaseOut], sort: str) -> list[ReleaseOut]:
+def _sorted(items: list[ReleaseOut], sort: str, q: str = "") -> list[ReleaseOut]:
+    if sort == "relevance" and q:
+        return sorted(items, key=lambda r: (-score(r, q), r.artist_sort, r.title.casefold()))
+    if sort == "relevance":
+        sort = "artist"
     if sort == "artist":
         return sorted(items, key=lambda r: (r.artist_sort, r.year or 9999, r.title.casefold()))
     if sort == "title":
@@ -43,7 +47,7 @@ async def list_releases(
     box: str | None = None,
     folder: int | None = None,
     on_shelf: bool | None = None,
-    sort: str = Query("position", pattern="^(position|artist|title|year|added|rating)$"),
+    sort: str = Query("position", pattern="^(position|relevance|artist|title|year|added|rating)$"),
     limit: int = Query(5000, ge=1, le=5000),
     offset: int = Query(0, ge=0),
     s: Services = Depends(svc),
@@ -67,7 +71,7 @@ async def list_releases(
         items = [r for r in items if r.folder_id == folder]
     if on_shelf is not None:
         items = [r for r in items if r.on_shelf == on_shelf]
-    items = _sorted(items, sort)
+    items = _sorted(items, sort, q)
     total = len(items)
     return {"items": [r.model_dump() for r in items[offset : offset + limit]], "total": total}
 

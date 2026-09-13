@@ -200,21 +200,49 @@ export interface Effect {
 }
 
 export interface LegendEntry {
+  /** "Red · Thou (19)" when color_name is set; otherwise a bare label shown with its count. */
   label: string;
   color: RGB;
   count: number;
+  item?: string;
+  color_name?: string;
 }
 
 export interface ActiveScene {
   name: string;
   title: string;
   legend: LegendEntry[];
+  note?: string | null;
 }
 
 export interface SceneInfo {
   name: string;
   title: string;
   description: string;
+  needs_details: boolean;
+  legend: LegendEntry[];
+  note: string | null;
+}
+
+export interface EnrichStatus {
+  state: "idle" | "running" | "done" | "error";
+  total: number;
+  done: number;
+  fetched: number;
+  cached: number;
+  prices: number;
+  errors: number;
+  prices_skipped: string | null;
+  current: string | null;
+  error: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface DetailsCounts {
+  release: number;
+  prices: number;
+  failed: number;
 }
 
 export interface SyncStatus {
@@ -255,6 +283,8 @@ export interface Status {
   scene: ActiveScene | null;
   controllers: ControllerInfo[];
   sync: SyncStatus;
+  details: DetailsCounts;
+  enrich: EnrichStatus;
   websocket_clients: number;
 }
 
@@ -365,7 +395,7 @@ export interface ReleaseQuery {
   box?: string;
   folder?: number;
   on_shelf?: boolean;
-  sort?: "position" | "artist" | "title" | "year" | "added" | "rating";
+  sort?: "position" | "relevance" | "artist" | "title" | "year" | "added" | "rating";
   limit?: number;
   offset?: number;
 }
@@ -374,6 +404,7 @@ export const api = {
   status: () => get<Status>("/api/status"),
   sync: () => get<SyncStatus>("/api/sync"),
   startSync: () => post<SyncStatus>("/api/sync"),
+  startEnrich: (body: { refresh_days?: number | null; prices?: boolean } = {}) => post<EnrichStatus>("/api/enrich", body),
   probe: (id: string) => post<ProbeResult>(`/api/controllers/${encodeURIComponent(id)}/probe`),
 
   releases: (q: ReleaseQuery = {}) => get<ReleaseList>(`/api/releases${qs(q)}`),
@@ -384,7 +415,7 @@ export const api = {
   putOrder: (order: number[]) => put<OrderView>("/api/order", { order }),
   putBoxes: (boxes: Record<string, number[]>) => put<OrderView>("/api/order/boxes", { boxes }),
   suggest: (id: number) => get<Suggestion>(`/api/order/suggest/${id}`),
-  place: (body: { instance_id: number; position?: number; box_id?: string; after?: number }) =>
+  place: (body: { instance_id: number; position?: number; box_id?: string; index?: number; after?: number }) =>
     post<OrderView>("/api/order/place", body),
   remove: (instance_id: number, exclude = false) => post<OrderView>("/api/order/remove", { instance_id, exclude }),
   boundaries: () => get<Boundaries>("/api/boundaries"),

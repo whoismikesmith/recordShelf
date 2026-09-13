@@ -66,13 +66,19 @@ def _row_to_release(row: sqlite3.Row) -> Release:
 
 
 class Database:
-    def __init__(self, path: Path | str = ":memory:"):
+    def __init__(self, path: Path | str = ":memory:", readonly: bool = False):
+        """`readonly` opens an existing file with SQLite's mode=ro: no schema setup, no writes."""
         self.path = str(path)
+        self._lock = threading.RLock()
+        if readonly:
+            uri = Path(self.path).resolve().as_uri() + "?mode=ro"
+            self._conn = sqlite3.connect(uri, uri=True, check_same_thread=False)
+            self._conn.row_factory = sqlite3.Row
+            return
         if self.path != ":memory:":
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(self.path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
-        self._lock = threading.RLock()
         with self._lock:
             if self.path != ":memory:":
                 self._conn.execute("PRAGMA journal_mode=WAL")
@@ -126,6 +132,15 @@ class Database:
 
     def list_releases(self) -> list[Release]:
         return [_row_to_release(r) for r in self.query("SELECT * FROM releases")]
+
+    def basic_info(self) -> dict[int, dict[str, Any]]:
+        """Discogs basic_information per instance: every artist, label and format, not just
+        the first ones the columns keep."""
+        rows = self.query("SELECT instance_id, raw FROM releases")
+        return {
+            r["instance_id"]: json.loads(r["raw"] or "{}").get("basic_information") or {}
+            for r in rows
+        }
 
     def get_release(self, instance_id: int) -> Release | None:
         rows = self.query("SELECT * FROM releases WHERE instance_id=?", (instance_id,))

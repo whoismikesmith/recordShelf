@@ -90,6 +90,37 @@ def test_place_from_inbox_and_remove(client):
     assert client.get("/api/boundaries").json()["calibrated"] == []
 
 
+def _box_ids(client) -> dict[str, list[int]]:
+    order = client.get("/api/order").json()
+    return {b["box_id"]: [i["instance_id"] for i in b["items"]] for b in order["boxes"]}
+
+
+def test_fill_boxes_by_hand_then_move_and_reorder(client):
+    for iid, box in [(1, "r0c0"), (2, "r0c0"), (3, "r0c1"), (5, "r0c1"), (7, "r0c0"), (8, "r0c2")]:
+        client.post("/api/order/place", json={"instance_id": iid, "box_id": box})
+    boxes = _box_ids(client)
+    assert boxes["r0c0"] == [1, 2, 7] and boxes["r0c1"] == [3, 5] and boxes["r0c2"] == [8]
+    # moving a record to the end of a later box must not spill it into the box after that
+    client.post("/api/order/place", json={"instance_id": 2, "box_id": "r0c1"})
+    boxes = _box_ids(client)
+    assert boxes["r0c0"] == [1, 7] and boxes["r0c1"] == [3, 5, 2] and boxes["r0c2"] == [8]
+    # `index` puts a record at a spot inside the box: from another box, and within the same box
+    client.post("/api/order/place", json={"instance_id": 8, "box_id": "r0c1", "index": 0})
+    client.post("/api/order/place", json={"instance_id": 3, "box_id": "r0c1", "index": 2})
+    boxes = _box_ids(client)
+    assert boxes["r0c1"] == [8, 5, 3, 2] and boxes["r0c2"] == [] and boxes["r0c0"] == [1, 7]
+    # `after` moving forward lands right after that record, not one further
+    client.post("/api/order/place", json={"instance_id": 8, "after": 3})
+    assert _box_ids(client)["r0c1"] == [5, 3, 8, 2]
+    missing = client.post("/api/order/place", json={"instance_id": 1, "box_id": "r9c9"})
+    assert missing.status_code == 404
+
+
+def test_releases_relevance_sort(client):
+    items = client.get("/api/releases", params={"q": "the", "sort": "relevance"}).json()["items"]
+    assert [r["instance_id"] for r in items] == [10, 1, 8]
+
+
 def test_put_boxes_and_suggest(client):
     client.put("/api/order/boxes", json={"boxes": {"r0c0": [2, 7], "r0c1": [1, 5, 6]}})
     order = client.get("/api/order").json()
@@ -102,8 +133,21 @@ def test_scenes_and_lights(client):
     client.post("/api/plan/apply")
     scenes = client.get("/api/scenes").json()["scenes"]
     assert {s["name"] for s in scenes} >= {"decade", "genre", "section", "rating", "recent"}
+    by_name = {s["name"]: s for s in scenes}  # legends are previewed before anything plays
+    assert by_name["genre"]["legend"][0]["label"] == "Red · Rock (3)"
+    assert by_name["producers"]["legend"] == [
+        {
+            "label": "Off · details not fetched yet (9)",
+            "item": "details not fetched yet",
+            "color_name": "Off",
+            "color": [0, 0, 0],
+            "count": 9,
+        }
+    ]
+    enrich = client.get("/api/enrich").json()
+    assert enrich["state"] == "idle" and enrich["cache"] == {"release": 0, "prices": 0, "failed": 0}
     r = client.post("/api/scenes/genre").json()
-    assert r["legend"][0]["label"] == "Rock"
+    assert r["legend"][0]["label"] == "Red · Rock (3)"
     assert client.get("/api/status").json()["scene"]["name"] == "genre"
     assert (
         client.post("/api/lights/box/r2c2", json={"color": [0, 255, 0], "duration": 1}).status_code

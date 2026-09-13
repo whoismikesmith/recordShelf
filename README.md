@@ -55,13 +55,23 @@ see a JSON hint instead of the app, the build is missing at the path it names.
 
 Then in the app: **Settings → Sync now** to pull the collection, **Layout** to describe your
 shelf and controllers, **Organize** to pick an ordering scheme, generate a plan, apply it, and
-calibrate boxes, **Browse** to find records.
+calibrate boxes, **Browse** to find records. If the shelf is already full, **Organize → Fill
+boxes** records it as it stands instead: pick a box, then search for each record in the order
+it sits.
 
 A Discogs token is optional for public collections but raises the rate limit from 25 to 60
 requests a minute, and it is the only way to see your collection folders and notes (Discogs
 hides those from unauthenticated requests). Get one at
 <https://www.discogs.com/settings/developers>. A 1700-item collection syncs in about a
 minute either way.
+
+The sync only brings the basics. Scenes about producers, mastering engineers, session
+musicians, pressing plants, market value and have/want need the full release from Discogs:
+**Settings → Fetch details** (or `uv run recordshelf enrich`) asks for each release once,
+shelf records first, at about 35 minutes per 1,000 releases with a token. Details are cached
+in `data/discogs-details.sqlite`, separate from the shelf database, and a rerun only fetches
+what is missing (`--refresh-days 30` refetches older entries, `--no-prices` skips the price
+suggestions).
 
 ### Development
 
@@ -130,7 +140,7 @@ Everything the app does is also a plain HTTP call, and the most useful ones acce
 | URL | Does |
 | --- | --- |
 | `/api/hooks/locate?q=kind+of+blue` | best text match, blink it |
-| `/api/hooks/scene/decade` | paint the shelf by decade until told to stop |
+| `/api/hooks/scene/artist` | paint the shelf by a scene (top 10 artists here) until told to stop |
 | `/api/hooks/box/r2c3` | light a whole box |
 | `/api/hooks/off` | stop, hand the strips back to WLED |
 | `/api/hooks/state` | `{"on": true/false}` for switch status polling |

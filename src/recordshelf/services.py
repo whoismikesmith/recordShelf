@@ -8,6 +8,7 @@ from typing import Any
 
 from .broadcast import Broadcaster
 from .db import Database
+from .details import DetailsStore, EnrichManager, enrich_targets
 from .discogs import DiscogsClient, SyncManager, SyncStatus
 from .drivers import Driver, make_driver
 from .layout import ResolvedLayout, load_layout, save_layout
@@ -15,7 +16,7 @@ from .models import LayoutConfig, Override, Placed, Release, ReleaseOut, Scheme
 from .ordering import build_plan, ordered_releases, section_for, section_rank, sort_key
 from .render.effects import Fill, Locate, Static, Wipe
 from .render.renderer import Renderer
-from .render.scenes import SCENES, SceneContext
+from .render.scenes import PALETTE, SCENES, SceneContext, list_scenes
 from .settings import Settings
 from .shelf import Located, Placement
 
@@ -27,9 +28,17 @@ class NotFound(Exception):
 
 
 class Services:
-    def __init__(self, settings: Settings, db: Database | None = None):
+    def __init__(
+        self, settings: Settings, db: Database | None = None, details: DetailsStore | None = None
+    ):
         self.settings = settings
         self.db = db or Database(settings.db_path)
+        self.details = details or DetailsStore(settings.details_path)
+        self.enrich = EnrichManager(
+            self.details,
+            self._client_factory,
+            on_change=lambda st: self._publish({"type": "enrich", **st.model_dump()}),
+        )
         self.broadcaster = Broadcaster()
         self.layout_cfg: LayoutConfig = load_layout(settings.layout_file)
         self.layout = ResolvedLayout(self.layout_cfg)
@@ -51,6 +60,7 @@ class Services:
     async def stop(self) -> None:
         await self.renderer.stop()
         self.db.close()
+        self.details.close()
 
     def _client_factory(self) -> DiscogsClient:
         s = self.settings
@@ -136,8 +146,21 @@ class Services:
             "scene": self.current_scene,
             "controllers": [d.info() for d in self.drivers.values()],
             "sync": self.sync.status.model_dump(),
+            "details": self.details.counts(),
+            "enrich": self.enrich.status.model_dump(),
             "websocket_clients": self.broadcaster.count,
         }
+
+    # -- release details -----------------------------------------------------
+
+    def start_enrich(self, refresh_days: float | None = None, prices: bool = True) -> bool:
+        """Fetch full Discogs details for every release, shelf records first. False if busy."""
+        if self.enrich.running:
+            return False
+        targets = enrich_targets(
+            self.db.list_releases(), self.scheme(), self.db.get_overrides(), self.db.get_order()
+        )
+        return self.enrich.start(targets, refresh_days=refresh_days, prices=prices)
 
     # -- ordering ----------------------------------------------------------
 
@@ -169,9 +192,10 @@ class Services:
     def insert_at(
         self,
         instance_id: int,
-        position: int,
+        position: int | None,
         box_id: str | None = None,
         into_next_box: bool = False,
+        index_in_box: int | None = None,
     ) -> Placement:
         """Insert a record at `position` and shift stored box boundaries to match.
 
@@ -179,6 +203,10 @@ class Services:
         matter of box index, not position: `box_id` names it explicitly, `into_next_box` makes
         the record the first one in the box that starts at `position`, otherwise it joins the
         box of the record just before it.
+
+        With `position=None` the record goes into `box_id` at `index_in_box`, or at its end.
+        That spot is worked out after the record leaves its old one, so moving a record forward
+        (within a box or into a later box) does not land it one place too far.
         """
         placement = self.placement()
         calibrated = self.db.calibrated_boxes()
@@ -190,6 +218,12 @@ class Services:
         if old_pos is not None:
             stored = {b: (p - 1 if p > old_pos else p) for b, p in stored.items()}
             placement = Placement(order, stored, self.layout)
+        if position is None:
+            rng = next((r for r in placement.ranges if r.box.id == box_id), None)
+            if rng is None:
+                raise NotFound(f"no record box {box_id}")
+            offset = rng.count if index_in_box is None else min(max(0, index_in_box), rng.count)
+            position = rng.start + offset
         position = max(0, min(position, len(order)))
         boxes = self.layout.record_boxes
         index_of = {b.id: i for i, b in enumerate(boxes)}
@@ -336,14 +370,12 @@ class Services:
 
     def identify(self, duration: float = 20.0) -> list[dict]:
         """Light the first LED of every box in a distinct color so wiring can be checked."""
-        from .render.scenes import PALETTE
-
         colors: dict[int, tuple[int, int, int]] = {}
         legend = []
         for i, box in enumerate(self.layout.boxes):
             if not box.has_leds:
                 continue
-            c = PALETTE[i % len(PALETTE)]
+            c = PALETTE[i % len(PALETTE)][1]
             # leftmost LED in reading order; in a reversed box that is the highest index
             first = box.global_start + (box.led_count - 1 if box.reversed else 0)
             colors[first] = c
@@ -360,16 +392,32 @@ class Services:
         self.current_scene = None
         self.renderer.stop_effect()
 
+    def scene_context(self) -> SceneContext:
+        return SceneContext(
+            self.releases(),
+            self.placement(),
+            self.scheme(),
+            self.db.get_overrides(),
+            basic=self.db.basic_info(),
+            details=self.details.details(),
+        )
+
+    def scenes(self) -> list[dict]:
+        """Every scene with the legend it would show right now."""
+        return list_scenes(self.scene_context())
+
     def play_scene(self, name: str, duration: float | None = None) -> list[dict]:
         if name not in SCENES:
             raise NotFound(f"no scene {name}")
         title, _, fn = SCENES[name]
-        ctx = SceneContext(
-            self.releases(), self.placement(), self.scheme(), self.db.get_overrides()
-        )
-        result = fn(ctx)
+        result = fn(self.scene_context())
         self.renderer.play(Static(result.colors, duration=duration), name="scene", scene=name)
-        self.current_scene = {"name": name, "title": title, "legend": result.legend}
+        self.current_scene = {
+            "name": name,
+            "title": title,
+            "legend": result.legend,
+            "note": result.note,
+        }
         return result.legend
 
     # -- layout ------------------------------------------------------------

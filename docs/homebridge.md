@@ -19,7 +19,8 @@ Install `homebridge-http-switch` and add accessories like these to `config.json`
   "onUrl": "http://recordshelf.local:8000/api/hooks/scene/decade",
   "offUrl": "http://recordshelf.local:8000/api/hooks/off",
   "statusUrl": "http://recordshelf.local:8000/api/hooks/state",
-  "statusPattern": "\"on\": ?true"
+  "statusPattern": "\"scene\":\\{\"name\":\"decade\"",
+  "pullInterval": 10000
 },
 {
   "accessory": "HTTP-SWITCH",
@@ -29,9 +30,19 @@ Install `homebridge-http-switch` and add accessories like these to `config.json`
 }
 ```
 
-`statusUrl` lets HomeKit show whether anything is running. Add one stateful switch per scene
-(`genre`, `rating`, `recent`, `section`, `label`, `style`), and stateless ones for boxes:
-`/api/hooks/box/r2c3`.
+`statusUrl` lets HomeKit show whether that scene is the one running: the pattern matches only
+while `/api/hooks/state` reports that scene by name, so starting another scene flips this switch
+off. (A pattern of `"on": ?true` would show every scene switch as on whenever any effect runs.)
+Add one stateful switch per scene, and stateless ones for boxes with a duration so the box does
+not stay lit forever: `/api/hooks/box/r2c3?duration=10`. Scene names:
+
+- from the synced collection: `artist` (top 10 artists), `label` (top 10 labels), `genre`
+  (top 5 genres), `year` (top 10 years), `style` (top 10 styles), `vinyl` (vinyl color),
+  `pressing` (special pressings), `decade`, `section`, `rating`, `recent`
+- after **Fetch details** / `recordshelf enrich`: `producers`, `mastering`, `musicians`,
+  `plants` (pressing plants), `value` (market value), `wanted` (want/have)
+
+The Scenes page shows which color means what for each one.
 
 ## Siri Shortcut: "find a record"
 

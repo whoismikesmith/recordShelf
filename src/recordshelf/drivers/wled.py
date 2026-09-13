@@ -59,7 +59,13 @@ class WledDriver(Driver):
     @property
     def base_url(self) -> str:
         host = self.cfg.host
-        return host if host.startswith("http") else f"http://{host}"
+        if host.startswith("http"):
+            return host
+        # Reuse the IPv4 address from start(). Letting httpx resolve a .local name itself
+        # asks mDNS for IPv6 too, which stalls ~5 s on macOS and outlasts our HTTP timeouts.
+        if self._addr is not None:
+            return f"http://{self._addr[0]}"
+        return f"http://{host}"
 
     async def start(self) -> None:
         try:

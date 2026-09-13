@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..models import RGB
-from ..render.scenes import list_scenes
 from ..search import best_match
 from ..services import NotFound, Services
 from ..shelf import Located
@@ -120,7 +119,8 @@ async def off(s: Services = Depends(svc)) -> dict:
 
 @router.get("/scenes")
 async def scenes(s: Services = Depends(svc)) -> dict:
-    return {"scenes": list_scenes(), "active": s.current_scene}
+    """Every scene with a preview legend computed from the current collection and details."""
+    return {"scenes": s.scenes(), "active": s.current_scene}
 
 
 class SceneBody(BaseModel):

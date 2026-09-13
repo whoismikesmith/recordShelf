@@ -36,10 +36,18 @@ export function SettingsPage() {
     onSuccess: () => { toast.show("Sync started", "ok"); void qc.invalidateQueries({ queryKey: ["status"] }); },
     onError: toast.error,
   });
+  const enrich = useMutation({
+    mutationFn: () => api.startEnrich(),
+    onSuccess: () => { toast.show("Fetching release details", "ok"); void qc.invalidateQueries({ queryKey: ["status"] }); },
+    onError: toast.error,
+  });
   const s = status.data;
   const live = ws.sync ?? s?.sync;
   const running = live?.state === "running";
   const pct = live && live.pages ? Math.round((live.page / live.pages) * 100) : 0;
+  const enrichLive = ws.enrich ?? s?.enrich;
+  const enriching = enrichLive?.state === "running";
+  const enrichPct = enrichLive && enrichLive.total ? Math.round((enrichLive.done / enrichLive.total) * 100) : 0;
 
   if (status.error) return <QueryError error={status.error} what="status" />;
   return (
@@ -70,6 +78,31 @@ export function SettingsPage() {
             </div>
           )}
           <p className="small muted" style={{ margin: 0 }}>Username and token live in <code>.env</code> on the server. A personal token from discogs.com/settings/developers raises the rate limit from 25 to 60 requests per minute.</p>
+          <h3 style={{ margin: "0.5rem 0 0" }}>Release details</h3>
+          {s?.details && (
+            <span className="small mono">
+              {s.details.release} releases · {s.details.prices} price sets cached{s.details.failed ? ` · ${s.details.failed} not found` : ""}
+            </span>
+          )}
+          <div className="row">
+            <button className="btn" onClick={() => enrich.mutate()} disabled={enriching || enrich.isPending || !s?.username}>
+              {enriching ? "Fetching…" : "Fetch details"}
+            </button>
+            {enrichLive?.state === "done" && <span className="small muted">Last run: {enrichLive.fetched} fetched · {enrichLive.errors} errors</span>}
+            {enrichLive?.state === "error" && <span className="badge danger" title={enrichLive.error ?? ""}>{enrichLive.error}</span>}
+          </div>
+          {enriching && enrichLive && (
+            <div className="stack" style={{ gap: 4 }}>
+              <div className="progress"><div style={{ width: `${enrichPct}%` }} /></div>
+              <span className="small muted truncate">
+                {enrichLive.done}/{enrichLive.total} · {enrichLive.fetched} fetched · {enrichLive.errors} errors · {enrichLive.current}
+              </span>
+            </div>
+          )}
+          {enrichLive?.prices_skipped && <span className="small muted">Prices skipped: {enrichLive.prices_skipped}</span>}
+          <p className="small muted" style={{ margin: 0 }}>
+            Credits, pressing plants, have/want and price suggestions for the credits, value and pressing scenes. One or two requests per release (about 35 minutes per 1,000 at the rate limit), shelf records first. Cached in <code>data/discogs-details.sqlite</code>; running it again only fetches what is missing. Also available as <code>recordshelf enrich</code>.
+          </p>
         </div>
         <div className="card stack">
           <h2>Controllers</h2>
@@ -96,7 +129,7 @@ export function SettingsPage() {
           On iPhone, an Apple Shortcut with a single <em>Get Contents of URL</em> action pointing at the locate hook gives you &ldquo;Hey Siri, find a record&rdquo; with the title spoken into the Shortcut&rsquo;s text input.
         </p>
         <UrlRow path="/api/hooks/locate?q=kind%20of%20blue" note="Best text match, then lights it. Replace the q value." />
-        <UrlRow path="/api/hooks/scene/decade" note="Play a scene: decade, genre, style, section, label, rating, recent. Add ?duration=600 for ten minutes." />
+        <UrlRow path="/api/hooks/scene/decade" note="Play a scene: artist, label, genre, year, style, vinyl, pressing, decade, section, rating, recent, producers, mastering, musicians, plants, value, wanted. Add ?duration=600 for ten minutes." />
         <UrlRow path="/api/hooks/box/r0c0" note="Light one box. Box ids are r{row}c{col}, zero-based from the top left." />
         <UrlRow path="/api/hooks/off" note="Lights off, WLED resumes its own state." />
         <UrlRow path="/api/hooks/state" note="Status for HomeKit switches: returns on/off and the active effect." />

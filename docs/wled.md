@@ -37,6 +37,12 @@ Each `strips` entry in the layout describes one physical strip:
   boxes: [[1,4],[1,3],[1,2],[1,1],[1,0]]   # boxes in the order the LEDs pass them
 ```
 
+A strip that is cut and fed from two outputs (say 50 + 50 LEDs, because one output per row
+of 100 was too long a run) is still one `strips` entry, as long as the second output carries
+on in the same direction: WLED joins the outputs into one index range, so the layout never
+sees where one ends. If one half runs the other way, tick **Reversed** on that output in
+WLED's LED Preferences rather than changing the layout.
+
 `count` is split evenly across the boxes listed (a 100-LED strip past five boxes gives each
 box 20 LEDs; a remainder goes to the first boxes). Listing the boxes right-to-left tells
 recordShelf the LEDs run right-to-left, so record positions are mirrored correctly. If a box

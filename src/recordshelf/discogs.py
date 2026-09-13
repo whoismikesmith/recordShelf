@@ -24,7 +24,9 @@ _ARTICLES = ("the ", "a ", "an ")
 
 
 class DiscogsError(Exception):
-    pass
+    def __init__(self, message: str, status: int | None = None):
+        super().__init__(message)
+        self.status = status
 
 
 def clean_artist_name(name: str) -> str:
@@ -133,7 +135,7 @@ class DiscogsClient:
                     msg = resp.json().get("message", resp.text)
                 except ValueError:
                     msg = resp.text
-                raise DiscogsError(f"Discogs {resp.status_code}: {msg}")
+                raise DiscogsError(f"Discogs {resp.status_code}: {msg}", resp.status_code)
             remaining = resp.headers.get("X-Discogs-Ratelimit-Remaining")
             if remaining is not None and remaining.isdigit() and int(remaining) <= 1:
                 await asyncio.sleep(5)
@@ -157,6 +159,20 @@ class DiscogsClient:
 
     async def identity_check(self) -> dict[str, Any]:
         return await self._get(f"/users/{self.username}", {})
+
+    async def currency(self) -> str:
+        """The account's marketplace currency (only visible with a token)."""
+        return (await self.identity_check()).get("curr_abbr") or "USD"
+
+    async def release(self, release_id: int, currency: str | None = None) -> dict[str, Any]:
+        """Full release: credits, companies, country, community have/want, lowest price."""
+        return await self._get(
+            f"/releases/{release_id}", {"curr_abbr": currency} if currency else {}
+        )
+
+    async def price_suggestions(self, release_id: int) -> dict[str, Any]:
+        """Suggested price per condition. Needs a token and seller settings on the account."""
+        return await self._get(f"/marketplace/price_suggestions/{release_id}", {})
 
 
 class SyncStatus(BaseModel):

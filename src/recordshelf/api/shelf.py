@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..models import Override, Scheme
 from ..services import NotFound, Services
@@ -85,6 +85,7 @@ class PlaceBody(BaseModel):
     instance_id: int
     position: int | None = None
     box_id: str | None = None
+    index: int | None = Field(default=None, ge=0)  # spot inside box_id; omit to add at its end
     after: int | None = None
 
 
@@ -122,19 +123,26 @@ async def place(body: PlaceBody, s: Services = Depends(svc)) -> dict:
         pos = placement.position.get(body.after)
         if pos is None:
             raise HTTPException(400, f"release {body.after} is not on the shelf")
-        position = pos + 1
+        old = placement.position.get(body.instance_id)
+        # moving forward: `after` slides back one place once this record leaves its old spot
+        position = pos if old is not None and old < pos else pos + 1
     elif body.box_id is not None:
-        rng = next((r for r in placement.ranges if r.box.id == body.box_id), None)
-        if rng is None:
+        if not any(r.box.id == body.box_id for r in placement.ranges):
             raise HTTPException(404, f"no record box {body.box_id}")
-        position = rng.end
+        position = None  # resolved inside the box once the record has left its old spot
     elif body.position is not None:
         position = body.position
         into_next = True
     else:
         position = s.suggest_position(body.instance_id)
         into_next = True
-    s.insert_at(body.instance_id, position, box_id=body.box_id, into_next_box=into_next)
+    s.insert_at(
+        body.instance_id,
+        position,
+        box_id=body.box_id,
+        into_next_box=into_next,
+        index_in_box=body.index,
+    )
     return _order_view(s)
 
 

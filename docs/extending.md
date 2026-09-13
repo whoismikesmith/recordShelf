@@ -29,12 +29,23 @@ of m records in a box gets), `Placement.locate(instance_id)`.
 ## Add a scene
 
 Scenes are functions in `src/recordshelf/render/scenes.py` that receive a `SceneContext`
-(releases, placement, scheme, overrides) and return `SceneResult(colors, legend)` where
-`colors` maps global pixel to RGB. Register in the `SCENES` dict with a title and one-line
-description and it appears in the app and at `/api/hooks/scene/<name>`.
+(releases, placement, scheme, overrides, Discogs `basic` info per instance, fetched `details`
+per release id) and return `SceneResult(colors, legend, note)` where `colors` maps global
+pixel to RGB. Register in the `SCENES` dict with a title and one-line description and it
+appears in the app, with its legend previewed, and at `/api/hooks/scene/<name>`.
 
-`_categorical` builds a scene from any `Release -> str` function with a palette and legend
-in one line; `_paint` maps colors onto pixels using the placement.
+`_ranked` builds a scene from any `Release -> list[str]` function: it counts values over every
+shelf record (placed or eligible), colors the top N from `PALETTE` (ten hues named and chosen
+to stay apart on WS2812B LEDs), folds the rest into `Grey · everything else (N)`, and writes
+legend entries like `Red · Thou (19)`. Return `None` instead of a list when the record's
+details have not been fetched yet; those stay off with their own legend line.
+
+## Release details
+
+`details.py` fetches `GET /releases/{id}` (credits, companies, country, community have/want,
+lowest price) and `GET /marketplace/price_suggestions/{id}` per release into
+`data/discogs-details.sqlite`, one raw JSON row per release and kind. `parse_details` turns a
+row into `ReleaseDetails`; add fields there when a scene needs more of the release.
 
 ## Add a section rule or sort key
 
@@ -47,12 +58,13 @@ in those two functions, and the Organize page picks it up from the schema.
 | What | Where | Why |
 | --- | --- | --- |
 | Hardware and shelf geometry | `config/shelf.yaml` | hand-editable, portable, versionable |
-| Collection, shelf order, boundaries, overrides, scheme | SQLite in `data/` | changes often, from the app |
+| Collection, shelf order, boundaries, overrides, scheme | `data/recordshelf.sqlite` | changes often, from the app |
+| Full Discogs release details and prices | `data/discogs-details.sqlite` | a cache; delete it and refetch |
 | Secrets and process settings | `.env` / environment | never committed |
 
 ## API
 
 Every route is under `/api` and documented at `/docs` (OpenAPI). The websocket at `/ws`
 sends `{"type": "hello", ...}` on connect, then `frame` (hex RGB for every pixel), `effect`,
-`scene`, `sync`, and `layout` messages. Anything that can render 500 colored dots can be a
-front end.
+`scene`, `sync`, `enrich`, and `layout` messages. Anything that can render 500 colored dots
+can be a front end.

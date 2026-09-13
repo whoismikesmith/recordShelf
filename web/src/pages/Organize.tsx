@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { FillBoxes } from "./OrganizeFill";
 import { SchemeEditor } from "./OrganizeScheme";
 import { PlanView } from "./OrganizePlan";
 import { ShelfContents } from "./OrganizeShelf";
 
-type Tab = "shelf" | "scheme" | "plan";
+type Tab = "shelf" | "fill" | "scheme" | "plan";
 
 export function OrganizePage() {
   const [tab, setTab] = useState<Tab>("shelf");
@@ -12,7 +13,7 @@ export function OrganizePage() {
       <div className="row between">
         <h1 style={{ margin: 0 }}>Organize</h1>
         <div className="chips">
-          {([["shelf", "Shelf"], ["scheme", "Scheme"], ["plan", "Plan"]] as [Tab, string][]).map(([t, label]) => (
+          {([["shelf", "Shelf"], ["fill", "Fill boxes"], ["scheme", "Scheme"], ["plan", "Plan"]] as [Tab, string][]).map(([t, label]) => (
             <button key={t} type="button" className={`chip ${tab === t ? "on" : ""}`} onClick={() => setTab(t)}>{label}</button>
           ))}
         </div>
@@ -21,6 +22,12 @@ export function OrganizePage() {
         <>
           <p className="muted small">What is in each box right now. Place new arrivals, mark the first record of a box to calibrate its LEDs, or exclude records that are not on this shelf.</p>
           <ShelfContents />
+        </>
+      )}
+      {tab === "fill" && (
+        <>
+          <p className="muted small">Record what is on the real shelf, one box at a time. Records are added in the order you find them, so work through each box left to right.</p>
+          <FillBoxes />
         </>
       )}
       {tab === "scheme" && (

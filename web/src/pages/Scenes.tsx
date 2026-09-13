@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, rgbCss, type LegendEntry } from "../api";
 import { QueryError } from "../components/ErrorBoundary";
@@ -13,14 +14,15 @@ const DURATIONS: { label: string; value: number | null }[] = [
   { label: "1 hour", value: 3600 },
 ];
 
-export function Legend({ legend }: { legend: LegendEntry[] }) {
+/** `column` lists one entry per line, for legends that name specific artists, labels, people. */
+export function Legend({ legend, column = false }: { legend: LegendEntry[]; column?: boolean }) {
   return (
-    <div className="legend">
+    <div className={`legend ${column ? "col" : ""}`}>
       {legend.map((l) => (
         <span key={l.label} className="small">
           <span className="sw" style={{ background: rgbCss(l.color) }} />
           {l.label}
-          {l.count ? <span className="muted mono"> {l.count}</span> : null}
+          {!l.color_name && l.count ? <span className="muted mono"> {l.count}</span> : null}
         </span>
       ))}
     </div>
@@ -54,27 +56,47 @@ export function ScenesPage() {
           <button className="btn" onClick={() => off.mutate()} disabled={!ws.effect}><Icons.off /> Off</button>
         </div>
       </div>
-      <p className="muted small">Paint the whole shelf by a record attribute. Scenes use the current shelf order, so calibrate first for accurate colors.</p>
+      <p className="muted small">
+        Paint the whole shelf by a record attribute. Counts cover every record that belongs on the shelf, so the lists stay put while you file; only placed records light up.
+      </p>
       {active && (
         <div className="card accent stack">
           <div className="row between">
             <strong>Now showing: {active.title}</strong>
             <span className="badge accent">live</span>
           </div>
-          <Legend legend={active.legend} />
+          <Legend legend={active.legend} column={active.legend.some((l) => l.color_name)} />
+          {active.note && <span className="small muted">{active.note}</span>}
         </div>
       )}
       <div className="card-grid">
         {(scenes.data?.scenes ?? []).map((s) => {
           const isActive = active?.name === s.name;
+          const legend = s.legend ?? []; // absent from servers older than this page
+          const unfetched = s.needs_details && legend.some((l) => l.item === "details not fetched yet");
           return (
-            <button key={s.name} type="button" className={`card stack ${isActive ? "accent" : ""}`} style={{ textAlign: "left", cursor: "pointer", color: "inherit", font: "inherit" }} onClick={() => play.mutate(s.name)} disabled={play.isPending}>
-              <div className="row between">
-                <strong>{s.title}</strong>
-                {isActive && <span className="badge accent">on</span>}
+            <div key={s.name} className={`card stack ${isActive ? "accent" : ""}`}>
+              <div className="row between" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}>
+                <div className="stack" style={{ gap: 2 }}>
+                  <strong>{s.title}</strong>
+                  <span className="muted small">{s.description}</span>
+                </div>
+                {isActive ? (
+                  <span className="badge accent">on</span>
+                ) : (
+                  <button type="button" className="btn sm primary" onClick={() => play.mutate(s.name)} disabled={play.isPending}>
+                    Play
+                  </button>
+                )}
               </div>
-              <span className="muted small">{s.description}</span>
-            </button>
+              <Legend legend={legend} column={legend.some((l) => l.color_name)} />
+              {s.note && <span className="small muted">{s.note}</span>}
+              {unfetched && (
+                <span className="small muted">
+                  Needs release details: <Link to="/settings">fetch them in Settings</Link>.
+                </span>
+              )}
+            </div>
           );
         })}
       </div>

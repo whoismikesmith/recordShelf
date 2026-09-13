@@ -45,3 +45,8 @@ class Settings(BaseSettings):
     @property
     def db_path(self) -> Path:
         return self.data_dir / "recordshelf.sqlite"
+
+    @property
+    def details_path(self) -> Path:
+        """Cache of full Discogs release details, kept apart from the shelf database."""
+        return self.data_dir / "discogs-details.sqlite"
