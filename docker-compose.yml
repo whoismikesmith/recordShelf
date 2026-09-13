@@ -1,10 +1,30 @@
+# Local:     docker compose up -d   (DISCOGS_* come from the .env next to this file)
+# Portainer: Stacks → Add stack → Repository, with the variables below set on the stack.
+#            Step by step for a Synology NAS: docs/synology.md
+#
+#   DISCOGS_USERNAME   required
+#   DISCOGS_TOKEN      optional, raises the Discogs rate limit and unlocks folders and prices
+#   SHELF_PORT         host port for the web app (default 8000)
+#   SHELF_DATA_PATH    host folder for the databases (default ./data)
+#   SHELF_CONFIG_PATH  host folder for shelf.yaml (default ./config)
+#   TZ                 timezone for log timestamps (default UTC)
 services:
   recordshelf:
     build: .
+    container_name: recordshelf
     ports:
-      - "8000:8000"
-    env_file: .env
+      - "${SHELF_PORT:-8000}:8000"
+    environment:
+      DISCOGS_USERNAME: ${DISCOGS_USERNAME:?set DISCOGS_USERNAME}
+      DISCOGS_TOKEN: ${DISCOGS_TOKEN:-}
+      TZ: ${TZ:-UTC}
     volumes:
-      - ./data:/app/data
-      - ./config:/app/config
+      - ${SHELF_DATA_PATH:-./data}:/app/data
+      - ${SHELF_CONFIG_PATH:-./config}:/app/config
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/hooks/state', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped

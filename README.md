@@ -154,8 +154,12 @@ Shortcut recipe. The full API is documented live at `/docs`.
 docker compose up -d
 ```
 
-builds the web app and runs the server on port 8000 with `./data` and `./config` mounted.
-Use IP addresses rather than `.local` names for controllers inside Docker.
+builds the web app and runs the server on port 8000 with `./data` and `./config` mounted,
+taking `DISCOGS_USERNAME` and `DISCOGS_TOKEN` from `.env`. `SHELF_PORT`, `SHELF_DATA_PATH` and
+`SHELF_CONFIG_PATH` move the port and folders. Use IP addresses rather than `.local` names for
+controllers inside Docker.
+
+For a Synology NAS with Portainer, see [docs/synology.md](docs/synology.md).
 
 ## License
 

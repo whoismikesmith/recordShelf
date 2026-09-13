@@ -8,8 +8,10 @@ GET URLs under `/api/hooks/`, so any HTTP switch plugin works.
 
 ## homebridge-http-switch
 
-Install `homebridge-http-switch` and add accessories like these to `config.json`
-(replace the host):
+Install `homebridge-http-switch` and add accessories like these to `config.json`. Replace
+`recordshelf.local` with the address of the machine running recordShelf; on a NAS use its IP
+address (see [synology.md](synology.md)), since Homebridge containers often cannot resolve
+`.local` names:
 
 ```json
 {

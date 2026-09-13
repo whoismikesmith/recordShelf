@@ -1,0 +1,21 @@
+# Keep the build context small and free of secrets and local state. The image only needs
+# pyproject.toml, uv.lock, README.md, src/ and web/ (minus its build output and node_modules).
+.git
+.github
+.env
+.env.*
+data/
+config/
+web/config/
+web/node_modules/
+web/dist/
+*.tsbuildinfo
+.venv/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.sqlite
+*.sqlite-*
+legacy/
+tests/
+docs/
