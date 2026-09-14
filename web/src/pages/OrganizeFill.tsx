@@ -33,7 +33,6 @@ export function FillBoxes() {
   const [q, setQ] = useState("");
   const dq = useDebounced(q, 150).trim();
   const [sizes, setSizes] = useState<Size[]>(["LP", '10"']);
-  const [fromStart, setFromStart] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   const [pending, setPending] = useState(0);
   const [hidden, setHidden] = useState<Set<number>>(() => new Set());
@@ -49,14 +48,12 @@ export function FillBoxes() {
   useEffect(() => {
     if (!boxId && boxes.length) setBoxId((boxes.find((b) => b.count === 0) ?? boxes[0]).box_id);
   }, [boxId, boxes]);
-  useEffect(() => { setLimit(PAGE); }, [boxId, sizes, fromStart]);
-  useEffect(() => { setFromStart(false); }, [boxId]);
+  useEffect(() => { setLimit(PAGE); }, [boxId, sizes]);
   // Keep the newest addition in view inside the contents list without scrolling the page.
   useEffect(() => { const el = contents.current; if (el) el.scrollTop = el.scrollHeight; }, [box?.count]);
 
   const placed = useMemo(() => new Set(boxes.flatMap((b) => b.items.map((r) => r.instance_id))), [boxes]);
   const all = useMemo(() => collection.data?.items ?? [], [collection.data]);
-  const rank = useMemo(() => new Map(all.map((r, i) => [r.instance_id, i])), [all]);
   const unplaced = useMemo(() => all.filter((r) => !r.excluded && !placed.has(r.instance_id) && !hidden.has(r.instance_id)), [all, placed, hidden]);
 
   const refresh = (view?: OrderView) => {
@@ -111,13 +108,8 @@ export function FillBoxes() {
   const next = idx >= 0 && idx + 1 < boxes.length ? boxes[idx + 1] : null;
   const hits = dq.length >= 2 ? results.data : undefined;
 
-  // Continue the A–Z list after the last record in this box. An empty box starts from A: the box before it
-  // may be a different section (soundtracks, 10"s) and would jump the list somewhere misleading.
-  const anchor = box && box.items.length ? box.items[box.items.length - 1] : null;
-  const anchorRank = anchor ? rank.get(anchor.instance_id) ?? -1 : -1;
-  const sized = unplaced.filter((r) => sizes.includes(sizeOf(r)));
-  const earlier = anchor ? sized.filter((r) => (rank.get(r.instance_id) ?? 0) < anchorRank).length : 0;
-  const shown = anchor && !fromStart ? sized.filter((r) => (rank.get(r.instance_id) ?? 0) > anchorRank) : sized;
+  // Always the whole collection from A, whatever is already in the box.
+  const shown = unplaced.filter((r) => sizes.includes(sizeOf(r)));
   const sizeCounts = new Map<Size, number>();
   for (const r of unplaced) sizeCounts.set(sizeOf(r), (sizeCounts.get(sizeOf(r)) ?? 0) + 1);
 
@@ -187,14 +179,7 @@ export function FillBoxes() {
                     return <button key={s} type="button" className={`chip ${on ? "on" : ""}`} onClick={() => setSizes(on ? sizes.filter((x) => x !== s) : [...sizes, s])}>{s === "LP" ? 'LP / 12"' : s} <span className="n">{sizeCounts.get(s) ?? 0}</span></button>;
                   })}
                 </div>
-                <div className="row between small">
-                  <span className="muted">
-                    {shown.length} not in a box yet{anchor && !fromStart ? <>, after <strong>{anchor.artist}</strong> – {anchor.title}</> : ", A–Z"}
-                  </span>
-                  {anchor && (fromStart
-                    ? <button className="btn ghost sm" onClick={() => setFromStart(false)}>Continue after {anchor.artist}</button>
-                    : earlier > 0 && <button className="btn ghost sm" onClick={() => setFromStart(true)}>Show {earlier} earlier</button>)}
-                </div>
+                <div className="small muted">{shown.length} not in a box yet, A–Z</div>
                 {collection.error && <QueryError error={collection.error} what="your collection" />}
                 {collection.isLoading && <div className="empty small">Loading your collection…</div>}
                 <div className="list">
@@ -208,7 +193,7 @@ export function FillBoxes() {
                   ))}
                 </div>
                 {shown.length > limit && <button className="btn" onClick={() => setLimit((l) => l + PAGE)}>Show {Math.min(PAGE, shown.length - limit)} more</button>}
-                {collection.data && shown.length === 0 && <div className="empty small">Nothing left to add{earlier ? " after this point" : ""} with these formats.</div>}
+                {collection.data && shown.length === 0 && <div className="empty small">Nothing left to add with these formats.</div>}
               </>
             )}
           </>
