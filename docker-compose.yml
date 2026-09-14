@@ -11,6 +11,9 @@
 services:
   recordshelf:
     build: .
+    # Rebuild on every `up`, so Portainer's "Pull and redeploy" runs the code it just pulled
+    # instead of reusing the image from an earlier deploy.
+    pull_policy: build
     container_name: recordshelf
     ports:
       - "${SHELF_PORT:-8000}:8000"
