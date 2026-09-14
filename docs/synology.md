@@ -8,8 +8,10 @@ Homebridge can live next to it. These steps assume Portainer is already running 
 
 - **Reserve IP addresses** in your router for the NAS and every WLED board. Inside a container
   `.local` names do not resolve, so `config/shelf.yaml` must use IP addresses for controllers.
-- **Pick a port.** The web app listens on 8000 inside the container. If something on the NAS
-  already uses 8000, choose another host port (for example 8420) for `SHELF_PORT` below.
+- **Pick a port.** The web app listens on 8000 inside the container, but a standard Portainer
+  install already holds port 8000 on the NAS (for its Edge agent), and the deploy then fails with
+  "Bind for 0.0.0.0:8000 failed: port is already allocated". Use another host port such as 8420
+  for `SHELF_PORT` below.
 - **Create the folders** in File Station, inside the `docker` shared folder:
   `docker/recordshelf/data` and `docker/recordshelf/config`. On the NAS these are
   `/volume1/docker/recordshelf/data` and `/volume1/docker/recordshelf/config` (adjust the
@@ -57,7 +59,7 @@ Portainer → **Stacks → Add stack**:
   | `DISCOGS_TOKEN` | your personal access token (optional, but needed for folders and prices) |
   | `SHELF_DATA_PATH` | `/volume1/docker/recordshelf/data` |
   | `SHELF_CONFIG_PATH` | `/volume1/docker/recordshelf/config` |
-  | `SHELF_PORT` | `8000` (or the port you picked) |
+  | `SHELF_PORT` | `8420` (or the port you picked) |
   | `TZ` | your timezone, e.g. `America/Los_Angeles` |
 
 **Deploy the stack.** Portainer clones the repo and builds the image on the NAS; the first
@@ -66,7 +68,10 @@ or the image.
 
 ## 4. Check it
 
-- Open `http://<nas-ip>:8000`. The status strip should show your record count and shelf.
+- Open `http://<nas-ip>:8420`. The status strip should show your record count and shelf.
+
+If the first deploy failed partway (for example on the port), remove the leftover `recordshelf`
+container under **Containers** before deploying again, or the name clashes.
 - **Layout → Controllers → Probe** each board, then **Test the lights → Identify**.
 - In Portainer the container should turn **healthy** within a minute (the health check calls
   `/api/hooks/state`).
@@ -89,11 +94,11 @@ first time. Run one or the other, not both at once.
 
 ## 6. Updating
 
-Push to the `v2` branch, then Portainer → Stacks → recordshelf → **Pull and redeploy**. Your
-data and config are untouched: they live in the mounted folders, not in the image.
-
-If a redeploy does not pick up the change, Portainer reused the image it built last time.
-Remove the `recordshelf-recordshelf` image under **Images** and redeploy to force a rebuild.
+Push to the `v2` branch, then Portainer → Stacks → recordshelf → **Pull and redeploy**, with
+**Re-pull image** left off (there is no registry image to pull; the stack builds its own). The
+compose file sets `pull_policy: build`, so every redeploy rebuilds from the code it just pulled;
+when only code changed, the dependency layers are cached and the rebuild takes about a minute.
+Your data and config are untouched: they live in the mounted folders, not in the image.
 
 ## Backups
 
@@ -103,5 +108,5 @@ can be inconsistent, so for a guaranteed-clean copy stop the stack briefly, or t
 
 ## Homebridge
 
-Point the switches in [homebridge.md](homebridge.md) at `http://<nas-ip>:8000`. That works
+Point the switches in [homebridge.md](homebridge.md) at `http://<nas-ip>:8420`. That works
 whether Homebridge runs in host or bridge network mode.
