@@ -69,12 +69,12 @@ or the image.
 ## 4. Check it
 
 - Open `http://<nas-ip>:8420`. The status strip should show your record count and shelf.
-
-If the first deploy failed partway (for example on the port), remove the leftover `recordshelf`
-container under **Containers** before deploying again, or the name clashes.
 - **Layout → Controllers → Probe** each board, then **Test the lights → Identify**.
 - In Portainer the container should turn **healthy** within a minute (the health check calls
   `/api/hooks/state`).
+
+If the first deploy failed partway (for example on the port), remove the leftover `recordshelf`
+container under **Containers** before deploying again, or the name clashes.
 
 After the move, do not run the old server against the boards any more: two servers sending
 frames fight over the LEDs. For development on another machine, set its controllers to
